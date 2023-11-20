@@ -1,0 +1,523 @@
+---
+title: "evs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+library(choroplethr)
+library(ggplot2)
+library(dplyr)
+library(sf)
+library(mapview)
+library(leaflet)
+library(tmap)
+```
+
+```{r pressure, echo=FALSE}
+data <- read.csv("Electric_Vehicle_Population_Data.csv")
+```
+
+```{r}
+city_counts <- table(data$City)
+
+sorted_cities <- sort(city_counts, decreasing = TRUE)
+
+print(head(names(sorted_cities), 10))
+```
+```{r}
+count_data <- data %>%
+  group_by(Model.Year, County) %>%
+  summarise(row_count = n())
+```
+```{r}
+ggplot(data = data) + 
+  geom_bar(mapping = aes(x = Make, fill  = Make))
+```
+
+```{r}
+top_10_makes <- data %>%
+  count(Make, sort = TRUE) %>%
+  head(10)
+
+data_filtered <- data %>%
+  filter(Make %in% top_10_makes$Make)
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Make, fill = Make))
+```
+```{r}
+data_filtered <- subset(data, Make == "TESLA")
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Model.Year, fill = Model.Year), fill = "#3aace0") +
+  scale_x_continuous(limits = c(2010, max(data_filtered$Model.Year))) +
+  xlab("Model Year") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Tesla Model Years")
+```
+```{r}
+data_filtered <- subset(data, Make == "NISSAN")
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Model.Year, fill = Model.Year), fill = "#3bc5d1") +
+  xlab("Model Year") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Nissan Model Years")
+```
+
+```{r}
+data_filtered <- subset(data, Make == "CHEVROLET")
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Model.Year, fill = Model.Year), fill = "#f2ac29") +
+  scale_x_continuous(limits = c(2010, max(data_filtered$Model.Year))) +
+  xlab("Model Year") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Chevrolet Model Years")
+```
+
+```{r}
+data_filtered <- subset(data, Make == "FORD")
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Model.Year, fill = Model.Year), fill = "#b0b518") +
+  scale_x_continuous(limits = c(2010, max(data_filtered$Model.Year))) +
+  xlab("Model Year") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Ford Model Years")
+```
+
+```{r}
+top_cities <- names(head(sorted_cities, 5))
+
+data_filtered <- data[data$City %in% top_cities, ]
+
+data_filtered <- data_filtered[data_filtered$Make %in% c("TESLA", "FORD", "CHEVROLET"), ]
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Make, fill = Make)) +
+  facet_wrap(~City)
+```
+```{r}
+filtered_data <- data %>%
+  filter(State == "WA" & Make == "TESLA" & City == "Seattle") %>%
+  mutate(
+    Longitude = as.numeric(sub("POINT \\((-?\\d+\\.\\d+) (-?\\d+\\.\\d+)\\)", "\\1", Vehicle.Location)),
+    Latitude = as.numeric(sub("POINT \\((-?\\d+\\.\\d+) (-?\\d+\\.\\d+)\\)", "\\2", Vehicle.Location))
+  ) %>%
+  filter(!is.na(Longitude) & !is.na(Latitude))  # Filter out rows with missing values
+
+# Create a simple features (sf) object
+mymap <- st_as_sf(filtered_data, coords = c("Longitude", "Latitude"), crs = 4326)
+```
+
+mapview(mymap)
+
+```{r}
+filtered_data
+```
+
+
+```{r}
+data_filtered <- subset(data, Make == "NISSAN")
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Clean.Alternative.Fuel.Vehicle..CAFV..Eligibility, fill = Clean.Alternative.Fuel.Vehicle..CAFV..Eligibility), fill = "#3bc5d1") +
+  xlab("Model Eligibility") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Nissan Model Eligibility")
+```
+
+```{r}
+data_filtered <- subset(data, Make == "TESLA")
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Clean.Alternative.Fuel.Vehicle..CAFV..Eligibility, fill = Clean.Alternative.Fuel.Vehicle..CAFV..Eligibility), fill = "#3aace0") +
+  xlab("Model Eligibility") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Tesla Model Eligibility")
+```
+
+```{r}
+city_counts <- table(data$City)
+
+sorted_city_counts <- sort(city_counts)
+
+barplot(sorted_city_counts, main = "Distribution of Rows by City (Least to Most)", xlab = "City", ylab = "Number of Rows")
+```
+
+```{r}
+city_counts <- table(data$City)
+
+percentile_25 <- quantile(city_counts, 0.25)
+percentile_75 <- quantile(city_counts, 0.75)
+
+top_25_cutoff <- percentile_75
+bottom_25_cutoff <- percentile_25
+
+min_count_top_25 <- min(city_counts[city_counts >= top_25_cutoff])
+min_count_bottom_25 <- min(city_counts[city_counts <= bottom_25_cutoff])
+
+cat("top 25%: ", min_count_top_25, "\n")
+cat("bottom 25%: ", min_count_bottom_25, "\n")
+
+
+```
+```{r}
+median(city_counts)
+```
+```{r}
+mean(city_counts)
+```
+
+```{r}
+threshold <- 54
+
+filtered_cities <- city_counts[city_counts >= threshold]
+
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+top_10_least_common <- head(names(sorted_filtered_cities), 6)
+
+print(top_10_least_common)
+
+```
+
+```{r}
+data_filtered <- data[data$City %in% top_10_least_common, ]
+
+data_filtered <- data_filtered[data_filtered$Make %in% c("TESLA", "FORD", "CHEVROLET", "NISSAN"), ]
+
+ggplot(data = data_filtered) + 
+  geom_bar(mapping = aes(x = Make, fill = Make)) +
+  facet_wrap(~City)+
+  xlab("Make") +
+  ylab("Number of Cars on the Road") +
+  labs(title = "Bottom 6 Occurring Cities in the Top 25%")
+```
+
+```{r}
+city_counts <- table(data$City)
+threshold <- 54
+```
+
+```{r}
+wa_cities <- data[data$State == "WA", ]
+
+wa_city_counts <- table(wa_cities$City)
+
+filtered_cities <- wa_city_counts[which(wa_city_counts > 0 & wa_city_counts < threshold)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+```
+
+```{r}
+filtered_data <- data[data$City %in% names(sorted_filtered_cities), ]
+
+filtered_data <- filtered_data[filtered_data$Make %in% c("TESLA", "FORD", "CHEVROLET", "NISSAN"), ]
+
+make_counts <- table(filtered_data$Make)
+```
+
+```{r}
+make_counts_df <- data.frame(Make = names(make_counts), Count = as.numeric(make_counts))
+
+ggplot(make_counts_df, aes(x = Make, y = Count, fill = Make)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Counts of Makes in Washington Cities in Bottom 75%", x = "Make", y = "Count") 
+  scale_fill_manual(values = c("CHEVROLET" = "#f2ac29", "FORD" = "#b0b518", "NISSAN" = "#3bc5d1", "TESLA" = "#3aace0"))
+
+```
+```{r}
+make_counts_df <- data.frame(Make = names(make_counts), Count = as.numeric(make_counts))
+
+plot <- ggplot(make_counts_df, aes(x = Make, y = Count, fill = Make)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Counts of Makes in Washington Cities in Bottom 75%", x = "Make", y = "Count") +
+  scale_fill_manual(values = c("#f2ac29","#b0b518","#3bc5d1","#3aace0"))
+plot
+
+```
+```{r}
+make_counts_df <- data.frame(Make = names(make_counts), Count = as.numeric(make_counts))
+
+plot <- ggplot(make_counts_df, aes(x = Make, y = Count, fill = Make)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Makes in Washington Cities in the Bottom 75%", x = "Make", y = "Count") +
+  ylab("Cars on the Road")+
+  scale_fill_manual(values = c("#f2ac29","#b0b518","#3bc5d1","#3aace0"))
+plot <- plot +
+  geom_text(aes(label = Count), vjust = -0.5, size = 3)
+
+# Print the plot
+plot
+
+```
+
+```{r}
+city_counts <- table(data$City)
+threshold <- 54
+```
+
+```{r}
+wa_cities <- data[data$State == "WA", ]
+
+wa_city_counts <- table(wa_cities$City)
+
+filtered_cities <- wa_city_counts[which(threshold <= wa_city_counts)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = TRUE)
+filtered_data <- data[data$City %in% names(sorted_filtered_cities), ]
+
+filtered_data <- filtered_data[filtered_data$Make %in% c("TESLA", "FORD", "CHEVROLET", "NISSAN"), ]
+
+make_counts <- table(filtered_data$Make)
+
+make_counts
+```
+```{r}
+
+make_counts_df <- data.frame(Make = names(make_counts), Count = as.numeric(make_counts))
+
+ggplot(make_counts_df, aes(x = Make, y = Count, fill = Make)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Total Counts of Makes in Washington Cities in Top 25%", x = "Make", y = "Count") 
+  scale_fill_manual(values = c("CHEVROLET" = "blue", "FORD" = "green", "NISSAN" = "red", "TESLA" = "purple"))
+
+```
+
+```{r}
+wa_cities <- data[data$State == "WA", ]
+
+wa_city_counts <- table(wa_cities$City)
+
+filtered_cities <- wa_city_counts[which(wa_city_counts > 0 & wa_city_counts < threshold)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+city_counts_df <- data.frame(City = names(sorted_filtered_cities), Count = sorted_filtered_cities)
+```
+
+
+```{r}
+wa_data <- data %>%
+  filter(State == "WA")
+
+random_rows_per_city <- wa_data %>%
+  group_by(City) %>%
+  sample_n(1) %>%
+  ungroup()
+
+selected_columns <- random_rows_per_city %>%
+  select(City, State, County, Make, Vehicle.Location)
+
+location_with_coords <- selected_columns%>%
+  mutate(
+    Longitude = as.numeric(sub("POINT \\((-?\\d+\\.\\d+) (-?\\d+\\.\\d+)\\)", "\\1", Vehicle.Location)),
+    Latitude = as.numeric(sub("POINT \\((-?\\d+\\.\\d+) (-?\\d+\\.\\d+)\\)", "\\2", Vehicle.Location))
+  )
+
+head(location_with_coords)
+```
+
+```{r}
+merged_data <- data %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+merged_city_counts <- city_counts_df %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+city_sf <- st_as_sf(merged_city_counts, coords = c("Longitude", "Latitude"))
+
+my_freq_map <- leaflet() %>%
+  addTiles() %>% 
+  addCircleMarkers(
+    data = city_sf,
+    radius = ~Count.Freq / 1, 
+    color = "blue",
+    stroke = FALSE,
+    fillOpacity = 0.7
+  )
+```
+
+#mapview(city_sf, zcol = "Count.Freq", map.types = "Esri.WorldImagery")
+my_freq_map
+
+
+#tesla bubble size map over threshold
+threshold <- 54
+
+wa_cities <- data[data$State == "WA", ]
+tesla_cities <- wa_cities[wa_cities$Make == "TESLA", ]
+
+tesla_city_counts <- table(tesla_cities$City)
+
+filtered_cities <- tesla_city_counts[which(threshold <= tesla_city_counts)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+city_counts_df <- data.frame(City = names(sorted_filtered_cities), Count = sorted_filtered_cities)
+
+merged_data <- tesla_data %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+merged_city_counts <- city_counts_df %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+city_sf <- st_as_sf(merged_city_counts, coords = c("Longitude", "Latitude"))
+
+my_freq_map <- leaflet() %>%
+  addTiles() %>% 
+  addCircleMarkers(
+    data = city_sf,
+    radius = ~Count.Freq / 100, 
+    color = "blue",
+    stroke = FALSE,
+    fillOpacity = 0.7
+  )
+
+
+```{r}
+#tesla bubble size map under threshold
+threshold <- 54
+
+wa_cities <- data[data$State == "WA", ]
+tesla_cities <- wa_cities[wa_cities$Make == "TESLA", ]
+
+tesla_city_counts <- table(tesla_cities$City)
+
+filtered_cities <- tesla_city_counts[which(threshold > tesla_city_counts)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+city_counts_df <- data.frame(City = names(sorted_filtered_cities), Count = sorted_filtered_cities)
+
+merged_city_counts <- city_counts_df %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+city_sf_tesla <- st_as_sf(merged_city_counts, coords = c("Longitude", "Latitude"))
+```
+
+```{r}
+#nissan bubble size map under threshold
+threshold <- 54
+
+wa_cities <- data[data$State == "WA", ]
+nissan_cities <- wa_cities[wa_cities$Make == "NISSAN", ]
+
+nissan_city_counts <- table(nissan_cities$City)
+
+filtered_cities <- nissan_city_counts[which(threshold > nissan_city_counts)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+city_counts_df <- data.frame(City = names(sorted_filtered_cities), Count = sorted_filtered_cities)
+
+merged_city_counts <- city_counts_df %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+city_sf_nissan <- st_as_sf(merged_city_counts, coords = c("Longitude", "Latitude"))
+```
+
+```{r}
+#ford bubble size map under threshold
+threshold <- 54
+
+wa_cities <- data[data$State == "WA", ]
+ford_cities <- wa_cities[wa_cities$Make == "FORD", ]
+
+ford_city_counts <- table(ford_cities$City)
+
+filtered_cities <- ford_city_counts[which(threshold > ford_city_counts)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+city_counts_df <- data.frame(City = names(sorted_filtered_cities), Count = sorted_filtered_cities)
+
+merged_city_counts <- city_counts_df %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+city_sf_ford <- st_as_sf(merged_city_counts, coords = c("Longitude", "Latitude"))
+```
+
+```{r}
+#chevrolet bubble size map under threshold
+threshold <- 54
+
+wa_cities <- data[data$State == "WA", ]
+chevrolet_cities <- wa_cities[wa_cities$Make == "CHEVROLET", ]
+
+chevrolet_city_counts <- table(chevrolet_cities$City)
+
+filtered_cities <- chevrolet_city_counts[which(threshold > chevrolet_city_counts)]
+sorted_filtered_cities <- sort(filtered_cities, decreasing = FALSE)
+
+city_counts_df <- data.frame(City = names(sorted_filtered_cities), Count = sorted_filtered_cities)
+
+merged_city_counts <- city_counts_df %>%
+  left_join(location_with_coords %>% select(City, Longitude, Latitude), by = "City")
+
+city_sf_chevrolet <- st_as_sf(merged_city_counts, coords = c("Longitude", "Latitude"))
+```
+
+```{r}
+combined_map <- leaflet() %>%
+  addTiles() 
+
+combined_map <- combined_map %>%
+  addCircleMarkers(
+    data = city_sf_tesla,
+    radius = ~Count.Freq / 2.5,
+    color = "black",
+    stroke = FALSE,
+    fillOpacity = 0.5
+  )
+
+combined_map <- combined_map %>%
+  addCircleMarkers(
+    data = city_sf_nissan,
+    radius = ~Count.Freq / 2.5,
+    color = "#3bc5d1",
+    stroke = FALSE,
+    fillOpacity = 0.9
+  )
+
+combined_map <- combined_map %>%
+  addCircleMarkers(
+    data = city_sf_ford,
+    radius = ~Count.Freq / 2.5,
+    color = "#b0b518",
+    stroke = FALSE,
+    fillOpacity = 0.9
+  )
+
+combined_map <- combined_map %>%
+  addCircleMarkers(
+    data = city_sf_chevrolet,
+    radius = ~Count.Freq / 2.5,
+    color = "#f2ac29",
+    stroke = FALSE,
+    fillOpacity = 0.6
+  )
+
+
+combined_map <- combined_map %>% addLegend(
+  position = "bottomright",
+  colors = c("#f2ac29","#b0b518","#3bc5d1","black"),  # Specify the legend colors
+  labels = c("Chevrolet", "Ford", "Nissan", "Tesla"),  # Specify the legend labels
+  title = "Vehicle Make"  # Specify the legend title
+)
+
+```
+
+
+
+combined_map
+
+
+
+
+
