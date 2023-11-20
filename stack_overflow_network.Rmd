@@ -1,0 +1,181 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+https://www.kaggle.com/datasets/stackoverflow/stack-overflow-tag-network/
+
+```{r}
+links <- read.csv("C:/Users/carso/Downloads/archive/stack_network_links.csv")
+nodes <- read.csv("C:/Users/carso/Downloads/archive/stack_network_nodes.csv")
+```
+
+
+
+```{r}
+library(tidyverse)
+library(ggraph)
+library(tidygraph)
+library(igraph)
+```
+
+```{r}
+head(nodes)
+```
+
+```{r}
+head(links)
+```
+```{r}
+connection_counts <- table(links$source, links$target)
+```
+
+```{r}
+total_connections <- rowSums(connection_counts)
+
+barplot(total_connections, names.arg = rownames(total_connections),
+        xlab = "Source", ylab = "Total Connections",
+        main = "Total Connections for Each Source")
+```
+```{r}
+total_connections <- rowSums(connection_counts)
+boxplot(total_connections, xlab = "Number of Connections", main = "Boxplot of Connection Counts", outline = TRUE,col = '#42cbf5')
+```
+```{r}
+ggplot(nodes, aes(x = "Nodesize", y = nodesize)) +
+  geom_boxplot(outlier.shape = 1, outlier.size = 4) +  # Show outliers with shape 1 and larger size
+  stat_summary(fun = mean, geom = "point", shape = 5, size = 4, color = "red") +  # Show mean as a red point
+  labs(title = "Boxplot of Nodesize")
+```
+
+```{r}
+boxplot(nodes$nodesize, xlab = "Nodesize", main = "Boxplot of Nodesize", outline = TRUE,col = '#42cbf5')
+```
+
+```{r}
+social_net_tbls <- tbl_graph(nodes=nodes, edges=links, directed=FALSE)
+```
+
+
+```{r}
+social_net <- ggraph(social_net_tbls, layout = "stress") +                                                                                                   
+  geom_node_point(size = 2) +                                         
+  geom_node_text(aes(label = name), nudge_y = 0.05, nudge_x = 0.2)+ 
+  geom_edge_link() +
+  theme_void()
+```
+
+
+```{r}
+show(social_net)
+```
+
+
+
+```{r}
+library(networkD3)   
+
+ColourScale <- 'd3.scaleOrdinal().range(["#000000", "#0000FF"]);'
+
+social_net_d3 <- forceNetwork(Links = links, Nodes = nodes, 
+             Source = "source", Target = "target", 
+             NodeID = "name", 
+             Group = "group", 
+             fontSize = 20, zoom = TRUE, 
+             linkColour = "black", 
+             charge = -500,
+             opacityNoHover = 1, 
+             colourScale = ColourScale, 
+             legend = TRUE) 
+
+
+```
+show(social_net_d3)
+
+```{r}
+y <- data.frame(links$source, links$target)
+```
+
+
+```{r}
+net <- graph.data.frame(y, directed=T)
+V(net)
+
+```
+
+
+```{r}
+V(net)$label <- V(net)$name
+V(net)$degree <- degree(net)
+```
+
+
+```{r}
+hist(V(net)$degree,
+     col = 'green',
+     main = 'Histogram of Node Degree',
+     ylab = 'Frequency',
+     xlab = 'Degree of Vertices')
+```
+
+
+```{r}
+set.seed(222)
+plot(net,
+     vertex.color = 'green',
+     vertext.size = 2,
+     edge.arrow.size = 0.1,
+     vertex.label.cex = 0.8)
+```
+```{r}
+plot(net,
+     vertex.color = rainbow(52),
+     vertex.size = V(net)$degree*0.4,
+     edge.arrow.size = 0.1,
+     layout=layout.fruchterman.reingold)
+```
+
+```{r}
+plot(net,
+     vertex.color = rainbow(52),
+     vertex.size = V(net)$degree*0.4,
+     edge.arrow.size = 0.1,
+     layout=layout.graphopt)
+```
+
+```{r}
+plot(net,
+     vertex.color = rainbow(52),
+     vertex.size = V(net)$degree*0.4,
+     edge.arrow.size = 0.3,
+     layout=layout.kamada.kawai)
+```
+```{r}
+kamada_layout <- layout.kamada.kawai(net)
+
+kamada_layout[, 1] <- kamada_layout[, 1] * 2
+kamada_layout[, 2] <- kamada_layout[, 2] * 2
+
+plot(net,
+     vertex.color = rainbow(52),
+     vertex.size = V(net)$degree * 0.4,
+     edge.arrow.size = 0.3,
+     layout = kamada_layout)
+```
+```{r}
+plot(net,
+     vertex.color = rainbow(56),
+     vertex.size = V(net)$degree * 0.3,
+     edge.arrow.size = 0.3,
+     layout = layout.fruchterman.reingold)
+```
+
+
+```{r}
+cnet <- cluster_edge_betweenness(net)
+plot(cnet,
+     net,
+     vertex.size = 10,
+     vertex.label.cex = 0.8)
+```
+
