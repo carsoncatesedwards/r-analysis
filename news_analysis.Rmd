@@ -1,0 +1,269 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+data <- read.csv("C:/Users/carso/Downloads/news_data/news.csv")
+```
+
+```{r}
+head(data)
+```
+
+
+```{r}
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(tidytext)
+library(stringr)
+library(tm)
+library(tidyr)
+library(scales)
+library(wordcloud)
+library(RColorBrewer)
+library(wordcloud2)
+```
+
+```{r}
+table_result <- table(data$label)
+print(table_result)
+```
+
+
+```{r}
+data$text <- gsub("\n", " ", data$text)
+```
+
+
+
+```{r}
+calculate_word_frequencies <- function(text, label) {
+  corpus <- Corpus(VectorSource(text))
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  dtm <- DocumentTermMatrix(corpus)
+  
+  if (ncol(dtm) == 0) {
+    return(data.frame(word = character(), frequency = numeric(), label = character()))
+  }
+
+  freq <- colSums(as.matrix(dtm))
+  data.frame(word = names(freq), frequency = freq, label = label)
+}
+
+word_freq_list <- Map(calculate_word_frequencies, data$text, data$label)
+
+```
+
+
+```{r}
+word_freq_df <- dplyr::bind_rows(word_freq_list)
+
+```
+
+
+```{r}
+final_word_freq_by_label <- word_freq_df %>%
+  group_by(label, word) %>%
+  summarise(frequency = sum(frequency))
+```
+
+
+```{r}
+final_word_freq_by_label
+```
+
+
+```{r}
+#write.csv(final_word_freq_by_label, "final_word_freq_by_label.csv", row.names = FALSE)
+final_word_freq_by_label <- read.csv("C:/Users/carso/OneDrive/Documents/final_word_freq_by_label.csv")
+```
+
+```{r}
+file.exists("C:/Users/carso/OneDrive/Documents/final_word_freq_by_label.csv")
+```
+
+
+```{r}
+final_word_freq_by_label <- final_word_freq_by_label[!grepl("^[0-9]", final_word_freq_by_label$word), ]
+final_word_freq_by_label <- final_word_freq_by_label[grepl("^[A-Za-z]", final_word_freq_by_label$word),]
+
+print(final_word_freq_by_label)
+
+```
+
+
+```{r}
+final_word_freq_by_label <- subset(final_word_freq_by_label, frequency > 30)
+
+frequency <- final_word_freq_by_label %>% 
+  select(label, word, frequency) %>% 
+  pivot_wider(names_from = label, values_from = frequency) %>%
+  arrange(FAKE, REAL)
+```
+
+
+```{r}
+frequency
+```
+
+
+```{r}
+ggplot(frequency, aes(FAKE, REAL)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  geom_abline(color = "red")
+```
+
+```{r}
+frequency <- na.omit(frequency)
+```
+
+
+```{r}
+real_rows <- frequency %>%
+  filter(REAL > FAKE)
+real_result <- real_rows %>%
+  mutate(difference = REAL - FAKE) %>%
+  arrange(desc(abs(difference)))%>%
+  head(20)
+real_result
+```
+
+
+```{r}
+fake_rows <- frequency %>%
+  filter(FAKE > REAL)
+fake_result <- fake_rows %>%
+  mutate(difference = FAKE - REAL) %>%
+  arrange(desc(abs(difference)))%>%
+  head(20)
+fake_result
+```
+
+
+
+```{r}
+filtered_dataframe <- fake_result %>%
+  arrange(desc(difference))
+
+ggplot(filtered_dataframe, aes(x = reorder(word, -difference), y = difference)) +
+  geom_bar(stat = "identity", position = "dodge", fill = "skyblue", color = "black") +
+  labs(title = "Top Words With Higher Frequency in Fake Articles",
+       x = "Word",
+       y = "Difference")
+```
+
+
+```{r}
+filtered_dataframe <- real_result %>%
+  arrange(desc(difference))
+
+ggplot(filtered_dataframe, aes(x = reorder(word, -difference), y = difference)) +
+  geom_bar(stat = "identity", position = "dodge", fill = "skyblue", color = "black") +
+  labs(title = "Top Words With Higher Frequency in Real Articles",
+       x = "Word",
+       y = "Difference")
+```
+
+
+```{r}
+real_data <- subset(data, label == "REAL")
+
+text <- real_data$title
+docs <- Corpus(VectorSource(text))
+docs <- docs %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeWords, stopwords("english"))
+dtm <- TermDocumentMatrix(docs) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+real_df <- data.frame(word = names(words),freq=words)
+
+
+
+
+fake_data <- subset(data, label == "FAKE")
+
+text <- fake_data$title
+docs <- Corpus(VectorSource(text))
+docs <- docs %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeWords, stopwords("english"))
+dtm <- TermDocumentMatrix(docs) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+fake_df <- data.frame(word = names(words),freq=words)
+```
+
+
+```{r}
+head(real_df)
+```
+
+
+```{r}
+set.seed(1234)
+wordcloud(words = real_df$word, freq = real_df$freq, min.freq = 1,           
+          max.words=200, random.order=FALSE, rot.per=0.35,            
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+```{r}
+set.seed(1234)
+wordcloud(words = fake_df$word, freq = fake_df$freq, min.freq = 1,           
+          max.words=200, random.order=FALSE, rot.per=0.35,            
+          colors=brewer.pal(8, "Dark2"))
+```
+
+
+```{r}
+subset_df <- subset(data, grepl("black", title, ignore.case = TRUE))
+print(subset_df)
+```
+
+
+```{r}
+table_result <- table(subset_df$label)
+print(table_result)
+```
+
+
+```{r}
+subset_df <- subset(data, grepl("white house", title, ignore.case = TRUE))
+#print(subset_df)
+```
+
+
+```{r}
+subset_df <- subset(data, grepl("white", title, ignore.case = TRUE))
+#print(subset_df)
+```
+
+
+```{r}
+subset_df <- subset(data, grepl("now", title, ignore.case = TRUE))
+table_result <- table(subset_df$label)
+print(table_result)
+```
+```{r}
+subset_df <- subset(data, grepl("october", text, ignore.case = TRUE))
+```
+
